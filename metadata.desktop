@@ -1,0 +1,13 @@
+[SddmGreeterTheme]
+Name=datastream
+Description=Fly through a neon city of streaming hex while a retro terminal asks for your password
+Author=Jeff DeWall
+License=MIT
+Type=sddm-theme
+Version=0.1.0
+Screenshot=preview.png
+MainScript=Main.qml
+ConfigFile=theme.conf
+Theme-Id=datastream
+Theme-API=2.0
+QtVersion=6
