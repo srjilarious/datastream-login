@@ -3,25 +3,49 @@
 # lock screen has no SDDM `config` object. Adds HostName, which SDDM gets
 # from sddm.hostName.
 #
-#   tools/conf2js.sh theme.conf > lockscreen/settings.js
+# Takes one or more .conf files; a key in a later file overrides the same
+# key in an earlier one. Missing files after the first are skipped, so the
+# settings app's saved choices can be passed whether or not they exist yet.
+#
+#   tools/conf2js.sh theme.conf [~/.config/datastream/settings.conf] > settings.js
 set -eu
-conf=${1:?usage: conf2js.sh theme.conf}
+[ $# -ge 1 ] || { echo "usage: conf2js.sh theme.conf [override.conf...]" >&2; exit 2; }
 host=$(cat /etc/hostname 2>/dev/null || uname -n)
+
+files=$1
+shift
+for f in "$@"; do
+    [ -f "$f" ] && files="$files
+$f"
+done
 
 echo ".pragma library"
 echo "// Generated from theme.conf by tools/conf2js.sh. Edit theme.conf instead."
 echo "var values = {"
-awk -F= '
+# Split on newlines only, so paths with spaces survive.
+old_ifs=$IFS
+IFS='
+'
+# shellcheck disable=SC2086
+awk '
     /^[[:space:]]*(#|;|\[|$)/ { next }
     {
-        key = $1
+        key = substr($0, 1, index($0, "=") - 1)
         val = substr($0, index($0, "=") + 1)
         gsub(/^[[:space:]]+|[[:space:]]+$/, "", key)
         gsub(/^[[:space:]]+|[[:space:]]+$/, "", val)
+        if (key == "") next
         gsub(/\\/, "\\\\", val)
         gsub(/"/, "\\\"", val)
-        printf "    \"%s\": \"%s\",\n", key, val
+        if (!(key in values))
+            order[n++] = key
+        values[key] = val
     }
-' "$conf"
+    END {
+        for (i = 0; i < n; i++)
+            printf "    \"%s\": \"%s\",\n", order[i], values[order[i]]
+    }
+' $files
+IFS=$old_ifs
 printf '    "HostName": "%s"\n' "$(printf %s "$host" | tr -d '"\\\n')"
 echo "};"

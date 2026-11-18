@@ -36,7 +36,7 @@ install -m 644 "$src/lockscreen/metadata.json" "$pkg/"
 install -m 644 "$src/lockscreen/LockScreen.qml" "$pkg/contents/lockscreen/"
 install -m 644 "$src"/shared/*.qml "$src"/shared/*.js "$pkg/contents/lockscreen/shared/"
 install -m 644 "$src"/shared/shaders/*.qsb "$pkg/contents/lockscreen/shared/shaders/"
-"$src/tools/conf2js.sh" "$src/theme.conf" > "$pkg/contents/lockscreen/settings.js"
+"$src/tools/conf2js.sh" "$src/theme.conf" "${XDG_CONFIG_HOME:-$HOME/.config}/datastream/settings.conf" > "$pkg/contents/lockscreen/settings.js"
 echo "installed $pkg"
 
 mkdir -p "$dropin_dir"

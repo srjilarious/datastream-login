@@ -43,6 +43,21 @@ built-in lock screen, so a broken theme cannot leave you unable to unlock.
 The lock screen package needs `"X-Plasma-APIVersion": "2"` in its metadata,
 or kscreenlocker logs "Lockscreen QML outdated" and uses Breeze.
 
+### Settings window
+
+    ./install-settings.sh              # install or update
+    ./install-settings.sh --uninstall
+
+Adds "datastream settings" to the application launcher: a live preview with
+the palette, the node name in the terminal header, and switches for the
+flying city and the hex rain. Apply saves the choices to
+`~/.config/datastream/settings.conf` and pushes them to both screens:
+the login screen's `theme.conf.user` (through pkexec, so it asks for your
+password) and the lock screen's `settings.js`. `install-lock.sh` merges
+`settings.conf` too, so reinstalling keeps them. Plasma's own Login Screen
+settings page can only change a theme's background, which is why this is a
+separate window.
+
 ## Keys
 
 | Key | Login screen | Lock screen |
@@ -71,14 +86,17 @@ commented out) overrides the palette's value for that key.
 
 ## Tuning
 
-Everything lives in `theme.conf`: palette, node name, city and rain switches, colors, flight speed, the rooftop climb,
+The settings window covers the common options. Everything else lives in
+`theme.conf`: palette, node name, city and rain switches, colors, flight speed, the rooftop climb,
 rain density and opacity, scanline strength and idle glitches.
 `RenderScale` sets the resolution the city is raycast at (0.75 of the
 screen by default); drop it to 0.5 on a weak GPU or a 4K panel.
 
-SDDM reads `theme.conf` directly. The lock screen has no config object, so
-`install-lock.sh` converts it to `settings.js` with `tools/conf2js.sh`
-(adding the host name); rerun the installer after editing `theme.conf`.
+SDDM reads `theme.conf` directly, with `theme.conf.user` on top. The lock
+screen has no config object, so `install-lock.sh` converts `theme.conf` plus
+`~/.config/datastream/settings.conf` to `settings.js` with
+`tools/conf2js.sh` (adding the host name); rerun the installer after
+editing `theme.conf`.
 The lock screen also takes `UnlockDelay`, the milliseconds ACCESS GRANTED
 plays before the desktop comes back (default 1200).
 
@@ -89,6 +107,8 @@ plays before the desktop comes back (default 1200).
   Talks to its owner through signals, so it has no SDDM or PAM code.
 - `shared/Banner.qml`: the big ACCESS GRANTED / DENIED word.
 - `shared/palettes.js`: the color palettes `Palette=` chooses from.
+- `settings/`: the settings window (PySide6 backend, Kirigami QML front end
+  that reuses `shared/Scene.qml` for the preview).
 - `shared/shaders/city.frag`: the city, a 2D grid raycast with one box per cell.
 - `shared/shaders/rain.frag`: screen-space hex rain.
 - `shared/shaders/post.frag`: chromatic split, glitch bands, scanlines, vignette,
