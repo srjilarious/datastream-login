@@ -59,6 +59,8 @@ FocusScope {
 
     property bool bootDone: false
     property bool busy: false
+    // Set by succeed(); the login is over from then on.
+    property bool accepted: false
     property int failures: 0
     property string statusText: ""
     property color statusColor: textColor
@@ -84,8 +86,12 @@ FocusScope {
         return msg + " " + ".".repeat(Math.max(3, cols - 2 - msg.length - 2 - (status.length + 2)))
     }
 
-    // Called by the owner once the login attempt has been rejected.
+    // Called by the owner once the login attempt has been rejected. Ignored
+    // after succeed(), so a late failure from a backend that is shutting
+    // down cannot turn ACCESS GRANTED into ACCESS DENIED.
     function fail(message) {
+        if (accepted)
+            return
         busy = false
         failures++
         passInput.text = ""
@@ -97,6 +103,9 @@ FocusScope {
     }
     // Called by the owner once the login attempt has been accepted.
     function succeed(message) {
+        if (accepted)
+            return
+        accepted = true
         statusColor = okColor
         statusText = message
         granted()

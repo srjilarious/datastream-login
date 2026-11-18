@@ -10,6 +10,7 @@
 // The owner puts its terminal inside Scene, points `bannerAnchor` at it and
 // calls deny() / grant() / burst() as the login goes.
 import QtQuick
+import "palettes.js" as Palettes
 
 Item {
     id: root
@@ -37,22 +38,37 @@ Item {
         return String(cfg(key, fallback)).toLowerCase() === "true"
     }
 
+    // Palette= picks a set of colors from palettes.js; a color key set in
+    // theme.conf overrides the palette's value for that key.
+    readonly property var colors: Palettes.get(cfg("Palette", "neon"))
+    function pal(key) {
+        return cfg(key, colors[key])
+    }
+
     // Terminal styling, read once here so both owners style it the same way.
     readonly property string fontFamily: cfg("Font", "JetBrains Mono")
     readonly property int fontPx: Math.max(13, Math.round(height / 64))
-    readonly property color accent: cfg("Accent", "#00e5ff")
-    readonly property color textColor: cfg("TextColor", "#b8f7ff")
-    readonly property color okColor: cfg("OkColor", "#39ff88")
-    readonly property color alertColor: cfg("AlertColor", "#ff2b4f")
+    readonly property color accent: pal("Accent")
+    readonly property color textColor: pal("TextColor")
+    readonly property color okColor: pal("OkColor")
+    readonly property color alertColor: pal("AlertColor")
 
-    readonly property color tintA: cfg("TintA", "#00e5ff")
-    readonly property color tintB: cfg("TintB", "#ff2bd6")
-    readonly property color tintC: cfg("TintC", "#ffb000")
-    readonly property color groundTint: cfg("GroundTint", "#7a2cff")
-    readonly property color rainTint: cfg("RainTint", "#1aff7a")
-    readonly property color rainHead: cfg("RainHeadTint", "#e8fff2")
+    readonly property color tintA: pal("TintA")
+    readonly property color tintB: pal("TintB")
+    readonly property color tintC: pal("TintC")
+    readonly property color groundTint: pal("GroundTint")
+    readonly property color rainTint: pal("RainTint")
+    readonly property color rainHead: pal("RainHeadTint")
+    readonly property real monochrome: {
+        const n = Number(pal("Monochrome"))
+        return isNaN(n) ? 0 : Math.max(0, Math.min(1, n))
+    }
+    readonly property color monochromeTint: pal("MonochromeTint")
     readonly property real baseSpeed: cfgNum("FlySpeed", 0.9)
     readonly property real renderScale: Math.max(0.25, Math.min(1.0, cfgNum("RenderScale", 0.75)))
+    // City=false leaves a black screen behind the rain; Rain=false drops the rain.
+    readonly property bool cityOn: cfgBool("City", true)
+    readonly property bool rainOn: cfgBool("Rain", true)
 
     property real clock: 0
     property real travel: 0
@@ -146,11 +162,14 @@ Item {
             property real scan: root.cfgNum("Scanlines", 0.6)
             property point res: Qt.point(width, height)
             property color flashColor: root.flashColor
+            property real mono: root.monochrome
+            property color monoTint: root.monochromeTint
             fragmentShader: Qt.resolvedUrl("shaders/post.frag.qsb")
         }
 
         Item {
             anchors.fill: parent
+            visible: root.cityOn
             // The raycast is the expensive part; render it smaller and let
             // the layer upscale. The CRT pass hides the softness.
             layer.enabled: root.renderScale < 1.0
@@ -175,7 +194,7 @@ Item {
 
         ShaderEffect {
             anchors.fill: parent
-            visible: density > 0
+            visible: root.rainOn && density > 0
             opacity: root.cfgNum("RainOpacity", 0.55)
             property real time: root.clock
             property real density: root.cfgNum("RainDensity", 0.45)
@@ -197,6 +216,8 @@ Item {
             y: (root.bannerAnchor ? root.bannerAnchor.y : root.height * 0.3) - height - root.height * 0.04
             fontFamily: root.fontFamily
             fontPx: Math.round(root.height / 11)
+            ghostA: root.pal("GhostA")
+            ghostB: root.pal("GhostB")
         }
     }
 

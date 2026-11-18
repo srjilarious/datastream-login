@@ -17,6 +17,10 @@ Rectangle {
     // Exposed for harness/sddm.qml.
     readonly property alias scene: scene
 
+    // Name shown in the header and boot log: NodeName from theme.conf, or
+    // the host name when it is not set.
+    readonly property string nodeName: scene.cfg("NodeName", sddm.hostName)
+
     property int sessionIndex: sessionModel.lastIndex >= 0 ? sessionModel.lastIndex : 0
 
     // Collect user and session names; the models only expose them through
@@ -76,13 +80,13 @@ Rectangle {
             alertColor: scene.alertColor
             focus: true
 
-            title: "MAINFRAME ACCESS NODE // " + sddm.hostName.toUpperCase()
+            title: "MAINFRAME ACCESS NODE // " + root.nodeName.toUpperCase()
             bootScript: [
                 { msg: "carrier detected on line 0x" + hex(4), status: "OK", ok: true },
                 { msg: "handshake " + hex(4) + ":" + hex(4) + ":" + hex(4), status: "OK", ok: true },
                 { msg: "routing through 7 relays", status: "OK", ok: true },
                 { msg: "mounting /dev/mainframe", status: "OK", ok: true },
-                { msg: "integrity of node " + sddm.hostName, status: "VERIFIED", ok: true },
+                { msg: "integrity of node " + root.nodeName, status: "VERIFIED", ok: true },
                 { msg: "security clearance", status: "REQUIRED", ok: false }
             ]
             userName: userModel.lastUser

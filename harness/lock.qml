@@ -1,6 +1,7 @@
 // Stand-ins for kscreenlocker's context objects so the lock screen can be
 // screenshotted with the plain `qml` runtime. Password "hack" unlocks,
-// anything else fails. Needs lockscreen/settings.js (tools/conf2js.sh).
+// anything else fails. Needs lockscreen/settings.js (tools/conf2js.sh); set
+// Palette= in theme.conf before generating it to try another palette.
 //
 //   QT_FORCE_STDERR_LOGGING=1 qml6 harness/lock.qml -- "$PWD/lockscreen" <shot dir>
 import QtQuick
@@ -27,7 +28,10 @@ Window {
         function respond(p) { p === "hack" ? okTimer.start() : failTimer.start() }
     }
     Timer { id: failTimer; interval: 700; onTriggered: authenticator.failed(0) }
-    Timer { id: okTimer; interval: 700; onTriggered: { authenticator.unlocked = true; authenticator.succeeded() } }
+    // Like kscreenlocker 6.8: after a success, stopAuthenticating() kills the
+    // PAM worker, which reports one more failed(0) shortly afterwards.
+    Timer { id: okTimer; interval: 700; onTriggered: { authenticator.unlocked = true; authenticator.succeeded(); lateFailTimer.start() } }
+    Timer { id: lateFailTimer; interval: 250; onTriggered: authenticator.failed(0) }
 
     Loader {
         id: loader
@@ -46,5 +50,5 @@ Window {
     Timer { interval: 3300; running: true; onTriggered: authenticator.respond("nope") }
     Timer { interval: 4200; running: true; onTriggered: win.shot("3-denied") }
     Timer { interval: 4600; running: true; onTriggered: authenticator.respond("hack") }
-    Timer { interval: 5600; running: true; onTriggered: win.shot("4-granted") }
+    Timer { interval: 5900; running: true; onTriggered: win.shot("4-granted") }
 }

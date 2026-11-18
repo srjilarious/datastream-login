@@ -30,7 +30,9 @@ Item {
     implicitHeight: 600
 
     readonly property string userName: typeof kscreenlocker_userName === "string" ? kscreenlocker_userName : ""
-    readonly property string hostName: Settings.values.HostName || "localhost"
+    // Name shown in the header and boot log: NodeName from theme.conf, or
+    // the host name conf2js.sh adds when it is not set.
+    readonly property string nodeName: Settings.values.NodeName || Settings.values.HostName || "localhost"
     readonly property string lockedAt: Qt.formatDateTime(new Date(), "HH:mm:ss")
     // How long ACCESS GRANTED and the warp play before the greeter exits.
     readonly property int unlockDelay: Math.max(0, Number(Settings.values.UnlockDelay) || 1200)
@@ -68,8 +70,11 @@ Item {
         target: authenticator
         // kind is non-zero for fingerprint, smartcard and other noninteractive
         // authenticators; only a rejected password counts as a denial.
+        // stopAuthenticating() after a success kills the PAM worker, which
+        // reports failed(0) while ACCESS GRANTED is still playing (Breeze
+        // never sees it because it quits at once), so ignore failures then.
         function onFailed(kind) {
-            if (kind != 0)
+            if (kind != 0 || root.unlocking)
                 return
             terminal.fail("access denied // attempt " + (terminal.failures + 1) + " logged")
             authenticator.startAuthenticating()
@@ -123,10 +128,10 @@ Item {
             alertColor: scene.alertColor
             focus: true
 
-            title: "SESSION LOCK // " + root.hostName.toUpperCase()
+            title: "SESSION LOCK // " + root.nodeName.toUpperCase()
             bootScript: [
                 { msg: "link suspended at " + root.lockedAt, status: "LOCKED", ok: false },
-                { msg: "operator " + root.userName + " on node " + root.hostName, status: "AWAY", ok: true },
+                { msg: "operator " + root.userName + " on node " + root.nodeName, status: "AWAY", ok: true },
                 { msg: "security clearance", status: "REQUIRED", ok: false }
             ]
             userName: root.userName

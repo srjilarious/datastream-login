@@ -10,6 +10,9 @@ Item {
     property string label: ""
     property color tint: "white"
     property real jitter: 0
+    // Colors of the two offset ghost copies.
+    property color ghostA: "#ff2bd6"
+    property color ghostB: "#00e5ff"
 
     width: main.implicitWidth
     height: main.implicitHeight
@@ -28,7 +31,7 @@ Item {
         font.family: banner.fontFamily
         font.pixelSize: banner.fontPx
         font.bold: true
-        color: "#ff2bd6"
+        color: banner.ghostA
         opacity: 0.55
     }
     Text {
@@ -38,7 +41,7 @@ Item {
         font.family: banner.fontFamily
         font.pixelSize: banner.fontPx
         font.bold: true
-        color: "#00e5ff"
+        color: banner.ghostB
         opacity: 0.55
     }
     Text {

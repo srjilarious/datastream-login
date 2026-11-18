@@ -1,7 +1,8 @@
 // Stand-ins for SDDM's context objects so the theme can be screenshotted
 // with the plain `qml` runtime. Password "hack" succeeds, anything else fails.
+// An optional third argument picks the palette (default neon).
 //
-//   QT_FORCE_STDERR_LOGGING=1 qml6 harness/sddm.qml -- "$PWD/sddm" <shot dir>
+//   QT_FORCE_STDERR_LOGGING=1 qml6 harness/sddm.qml -- "$PWD/sddm" <shot dir> [palette]
 import QtQuick
 
 Window {
@@ -11,8 +12,11 @@ Window {
     visible: true
     color: "black"
 
-    property string outDir: ""
-    property var shots: []
+    // Arguments after "--": theme dir, shot dir, optional palette.
+    readonly property var args: {
+        const a = Qt.application.arguments
+        return a.slice(a.indexOf("--") + 1)
+    }
 
     QtObject {
         id: sddm
@@ -28,7 +32,8 @@ Window {
     }
     Timer { id: failTimer; interval: 700; onTriggered: sddm.loginFailed() }
     Timer { id: okTimer; interval: 700; onTriggered: sddm.loginSucceeded() }
-    QtObject { id: config }
+    // Stands in for SDDM's config map; Main.qml reads it as `config`.
+    property var config: ({ Palette: win.args.length > 2 ? win.args[2] : "neon" })
     QtObject { id: keyboard; property bool capsLock: false }
     ListModel {
         id: userModel
@@ -47,12 +52,12 @@ Window {
     Loader {
         id: loader
         anchors.fill: parent
-        source: Qt.resolvedUrl(Qt.application.arguments[Qt.application.arguments.length - 2] + "/Main.qml")
+        source: Qt.resolvedUrl(win.args[0] + "/Main.qml")
         onLoaded: { item.width = Qt.binding(() => win.width); item.height = Qt.binding(() => win.height) }
     }
 
     function shot(name) {
-        loader.grabToImage(r => r.saveToFile(Qt.application.arguments[Qt.application.arguments.length - 1] + "/" + name + ".png"))
+        loader.grabToImage(r => r.saveToFile(win.args[1] + "/" + name + ".png"))
     }
 
     // Script: boot log, idle with prompt, a failed login, then a skyline view.

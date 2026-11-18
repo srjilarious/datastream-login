@@ -56,9 +56,22 @@ or kscreenlocker logs "Lockscreen QML outdated" and uses Breeze.
 | Escape | clear password | clear password (and the locker blanks the screen) |
 | any key during boot log | skip to the prompt | skip to the prompt; typed characters go into the password |
 
+## Palettes
+
+`Palette=` in `theme.conf` picks the colors:
+
+- `neon` (default): cyan, magenta and amber towers under green hex rain.
+- `phosphor`: an old green monochrome monitor. The CRT pass maps the whole
+  image onto one green by brightness, so everything is a shade of green;
+  ACCESS DENIED shows in the hottest near-white green instead of red.
+
+Palettes are defined in `shared/palettes.js`; add one there and select it
+by name. Any color key set in `theme.conf` (they are listed there,
+commented out) overrides the palette's value for that key.
+
 ## Tuning
 
-Everything lives in `theme.conf`: colors, flight speed, the rooftop climb,
+Everything lives in `theme.conf`: palette, node name, city and rain switches, colors, flight speed, the rooftop climb,
 rain density and opacity, scanline strength and idle glitches.
 `RenderScale` sets the resolution the city is raycast at (0.75 of the
 screen by default); drop it to 0.5 on a weak GPU or a 4K panel.
@@ -75,9 +88,11 @@ plays before the desktop comes back (default 1200).
 - `shared/Terminal.qml`: boot log, prompts, status line and key handling.
   Talks to its owner through signals, so it has no SDDM or PAM code.
 - `shared/Banner.qml`: the big ACCESS GRANTED / DENIED word.
+- `shared/palettes.js`: the color palettes `Palette=` chooses from.
 - `shared/shaders/city.frag`: the city, a 2D grid raycast with one box per cell.
 - `shared/shaders/rain.frag`: screen-space hex rain.
-- `shared/shaders/post.frag`: chromatic split, glitch bands, scanlines, vignette.
+- `shared/shaders/post.frag`: chromatic split, glitch bands, scanlines, vignette,
+  and the monochrome phosphor mapping.
 - `sddm/Main.qml`: wires the terminal to SDDM's `sddm`, `userModel` and
   `sessionModel`.
 - `lockscreen/LockScreen.qml`: wires the terminal to kscreenlocker's

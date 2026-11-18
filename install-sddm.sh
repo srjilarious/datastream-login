@@ -13,7 +13,7 @@ fi
 sudo mkdir -p "$dest/shared/shaders"
 sudo install -m 644 "$src"/sddm/Main.qml "$src"/sddm/metadata.desktop \
     "$src"/sddm/preview.png "$src"/theme.conf "$dest/"
-sudo install -m 644 "$src"/shared/*.qml "$dest/shared/"
+sudo install -m 644 "$src"/shared/*.qml "$src"/shared/*.js "$dest/shared/"
 sudo install -m 644 "$src"/shared/shaders/*.qsb "$dest/shared/shaders/"
 echo "installed to $dest"
 echo "preview without logging out: sddm-greeter-qt6 --test-mode --theme $dest"

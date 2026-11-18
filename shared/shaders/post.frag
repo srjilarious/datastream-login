@@ -1,6 +1,8 @@
 // Full-screen CRT pass over the whole scene: chromatic split, glitch band
 // displacement, scanlines, a slow rolling bar, grain and vignette. glitch is
 // 0 normally and spikes to 1 on a failed login or the idle glitch timer.
+// mono > 0 maps the result onto one phosphor color by brightness, for the
+// single-color monitor palettes.
 #version 440
 
 layout(location = 0) in vec2 qt_TexCoord0;
@@ -15,6 +17,8 @@ layout(std140, binding = 0) uniform buf {
     float scan;      // scanline strength 0..1
     vec2 res;
     vec4 flashColor;
+    float mono;      // 0 = full color, 1 = single phosphor color
+    vec4 monoTint;
 };
 
 layout(binding = 1) uniform sampler2D source;
@@ -53,6 +57,12 @@ void main() {
     c *= 1.0 - dot(q, q) * 0.85;
     c += (hash12(qt_TexCoord0 * res + fract(time) * 977.0) - 0.5) * (0.035 + g * 0.08);
     c += flashColor.rgb * flash;
+
+    // Phosphor: brightness drives the tint, and the hottest parts burn
+    // towards white the way an overdriven tube does.
+    float lum = dot(max(c, 0.0), vec3(0.299, 0.587, 0.114));
+    vec3 phos = monoTint.rgb * lum * 1.3 + vec3(pow(lum, 3.0) * 0.45);
+    c = mix(c, phos, clamp(mono, 0.0, 1.0));
 
     fragColor = vec4(c, 1.0) * qt_Opacity;
 }
