@@ -11,7 +11,9 @@ rises above the rooftops for a skyline pass.
 The lock screen uses the same scene and terminal with a shorter boot log
 and the user fixed to the one who is locked out.
 
-![preview](sddm/preview.png)
+![Login screen at the password prompt](docs/screenshots/login-neon.jpg)
+
+![Lock screen after a wrong password](docs/screenshots/lock-denied.jpg)
 
 ## Install
 
@@ -79,6 +81,8 @@ separate window.
 - `phosphor`: an old green monochrome monitor. The CRT pass maps the whole
   image onto one green by brightness, so everything is a shade of green;
   ACCESS DENIED shows in the hottest near-white green instead of red.
+
+![Login screen with the phosphor palette](docs/screenshots/login-phosphor.jpg)
 
 Palettes are defined in `shared/palettes.js`; add one there and select it
 by name. Any color key set in `theme.conf` (they are listed there,
