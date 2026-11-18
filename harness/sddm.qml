@@ -1,5 +1,7 @@
 // Stand-ins for SDDM's context objects so the theme can be screenshotted
 // with the plain `qml` runtime. Password "hack" succeeds, anything else fails.
+//
+//   QT_FORCE_STDERR_LOGGING=1 qml6 harness/sddm.qml -- "$PWD/sddm" <shot dir>
 import QtQuick
 
 Window {
@@ -61,7 +63,7 @@ Window {
     Timer { interval: 6300; running: true; onTriggered: win.shot("4-denied-later") }
     Timer { interval: 6600; running: true; onTriggered: sddm.login("jeffdw", "hack", 0) }
     Timer { interval: 7500; running: true; onTriggered: win.shot("5-granted") }
-    Timer { interval: 8800; running: true; onTriggered: { loader.item.climb = 1; loader.item.speed = 0.9 } }
+    Timer { interval: 8800; running: true; onTriggered: { loader.item.scene.climb = 1; loader.item.scene.speed = 0.9 } }
     Timer { interval: 9500; running: true; onTriggered: win.shot("6-skyline") }
     Timer { interval: 10500; running: true; onTriggered: Qt.quit() }
 }

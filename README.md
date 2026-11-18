@@ -1,33 +1,60 @@
 # datastream
 
-An SDDM (Qt 6) login theme: the camera flies down an avenue of neon towers
-covered in streaming hex, green hex rain falls over the top, and a retro
-terminal types out a boot log before asking for your password. A wrong
-password tears the screen apart with a glitch burst and a flickering
-ACCESS DENIED; the right one flashes ACCESS GRANTED and the camera warps
-forward. Every so often the camera rises above the rooftops for a skyline
-pass.
+A login theme for SDDM (Qt 6) and a matching Plasma 6 lock screen. The
+camera flies down an avenue of neon towers covered in streaming hex, green
+hex rain falls over the top, and a retro terminal types out a boot log
+before asking for your password. A wrong password tears the screen apart
+with a glitch burst and a flickering ACCESS DENIED; the right one flashes
+ACCESS GRANTED and the camera warps forward. Every so often the camera
+rises above the rooftops for a skyline pass.
 
-![preview](preview.png)
+The lock screen uses the same scene and terminal with a shorter boot log
+and the user fixed to the one who is locked out.
+
+![preview](sddm/preview.png)
 
 ## Install
 
-    ./install.sh
+### Login screen (SDDM)
+
+    ./install-sddm.sh
     sddm-greeter-qt6 --test-mode --theme /usr/share/sddm/themes/datastream
 
 Then select it in System Settings > Login Screen (SDDM).
 
+### Lock screen
+
+    ./install-lock.sh          # install or update
+    ./install-lock.sh --test   # install, then open a test lock screen
+    ./install-lock.sh --uninstall
+
+No sudo needed. Plasma's locker (`kscreenlocker_greet`) loads
+`lockscreen/LockScreen.qml` from the Plasma shell package named by
+`$PLASMA_DEFAULT_SHELL`. The script installs a shell package,
+`~/.local/share/plasma/shells/datastream.lockscreen`, that holds only the
+lock screen, and sets `PLASMA_DEFAULT_SHELL` for KWin alone through a
+systemd drop-in
+(`~/.config/systemd/user/plasma-kwin_wayland.service.d/datastream-lockscreen.conf`).
+KWin starts the locker, so the locker sees it; plasmashell is a separate
+service and keeps the normal desktop shell. The drop-in takes effect at the
+next login. If the QML ever fails to load, kscreenlocker falls back to its
+built-in lock screen, so a broken theme cannot leave you unable to unlock.
+
+The lock screen package needs `"X-Plasma-APIVersion": "2"` in its metadata,
+or kscreenlocker logs "Lockscreen QML outdated" and uses Breeze.
+
 ## Keys
 
-| Key | Action |
-| --- | --- |
-| Enter | next line / log in |
-| Tab, Shift+Tab | switch between login and password |
-| Up / Down (login line) | cycle users |
-| F10 | cycle sessions |
-| F11 / F12 | reboot / power off |
-| Escape | clear password |
-| any key during boot log | skip to the prompt |
+| Key | Login screen | Lock screen |
+| --- | --- | --- |
+| Enter | next line / log in | unlock |
+| Tab, Shift+Tab | switch between login and password | |
+| Up / Down (login line) | cycle users | |
+| F10 | cycle sessions | |
+| F11 | reboot | |
+| F12 | power off | sleep |
+| Escape | clear password | clear password (and the locker blanks the screen) |
+| any key during boot log | skip to the prompt | skip to the prompt; typed characters go into the password |
 
 ## Tuning
 
@@ -36,14 +63,41 @@ rain density and opacity, scanline strength and idle glitches.
 `RenderScale` sets the resolution the city is raycast at (0.75 of the
 screen by default); drop it to 0.5 on a weak GPU or a 4K panel.
 
+SDDM reads `theme.conf` directly. The lock screen has no config object, so
+`install-lock.sh` converts it to `settings.js` with `tools/conf2js.sh`
+(adding the host name); rerun the installer after editing `theme.conf`.
+The lock screen also takes `UnlockDelay`, the milliseconds ACCESS GRANTED
+plays before the desktop comes back (default 1200).
+
 ## Layout
 
-- `Main.qml`: scene, flight clock, glitch/flash drivers, CRT pass.
-- `Terminal.qml`: boot log, prompts, SDDM login calls, key handling.
-- `Banner.qml`: the big ACCESS GRANTED / DENIED word.
-- `shaders/city.frag`: the city, a 2D grid raycast with one box per cell.
-- `shaders/rain.frag`: screen-space hex rain.
-- `shaders/post.frag`: chromatic split, glitch bands, scanlines, vignette.
+- `shared/Scene.qml`: city, rain, CRT pass, glitch/flash drivers, banner, warp.
+- `shared/Terminal.qml`: boot log, prompts, status line and key handling.
+  Talks to its owner through signals, so it has no SDDM or PAM code.
+- `shared/Banner.qml`: the big ACCESS GRANTED / DENIED word.
+- `shared/shaders/city.frag`: the city, a 2D grid raycast with one box per cell.
+- `shared/shaders/rain.frag`: screen-space hex rain.
+- `shared/shaders/post.frag`: chromatic split, glitch bands, scanlines, vignette.
+- `sddm/Main.qml`: wires the terminal to SDDM's `sddm`, `userModel` and
+  `sessionModel`.
+- `lockscreen/LockScreen.qml`: wires the terminal to kscreenlocker's
+  `authenticator`.
+- `sddm/shared` and `lockscreen/shared` are symlinks to `shared/` so each
+  entry point can `import "shared"` from the repo the same way it does
+  once installed.
 
-The glyphs are a hand-made 3x5 hex font packed into floats, shared by the
-city and rain shaders. After editing a `.frag`, run `./build-shaders.sh`.
+The glyphs are a hand-made 3x5 hex font packed into floats
+(`tools/font.py`), shared by the city and rain shaders. After editing a
+`.frag`, run `./build-shaders.sh`.
+
+## Testing without installing
+
+`harness/` has mock context objects so both screens can be screenshotted
+with the plain `qml` runtime (password "hack" succeeds):
+
+    tools/conf2js.sh theme.conf > lockscreen/settings.js
+    QT_FORCE_STDERR_LOGGING=1 qml6 harness/lock.qml -- "$PWD/lockscreen" /tmp/shots
+    QT_FORCE_STDERR_LOGGING=1 qml6 harness/sddm.qml -- "$PWD/sddm" /tmp/shots
+
+Under a systemd session Qt logs to the journal, so without
+`QT_FORCE_STDERR_LOGGING=1` QML errors are silent.

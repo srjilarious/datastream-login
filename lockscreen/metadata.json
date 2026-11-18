@@ -1,0 +1,16 @@
+{
+    "KPackageStructure": "Plasma/Shell",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "Jeff DeWall"
+            }
+        ],
+        "Description": "datastream lock screen: only contains lockscreen/, everything else falls back to the default Plasma shell",
+        "Id": "datastream.lockscreen",
+        "License": "MIT",
+        "Name": "datastream lock screen",
+        "Version": "0.1.0"
+    },
+    "X-Plasma-APIVersion": "2"
+}

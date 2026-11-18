@@ -1,11 +1,13 @@
-// The login terminal: types out a short boot log, then shows login and
-// password prompts. Talks to SDDM through the `sddm`, `userModel`,
-// `sessionModel` and `keyboard` context objects the greeter provides.
+// The retro login terminal shared by the SDDM greeter and the lock screen.
+// It types out `bootScript`, then shows login and password prompts. It knows
+// nothing about SDDM or kscreenlocker: the owner listens for submitted() and
+// keyCommand(), and reports back with fail(), succeed() and say().
 //
-// Keys: Enter logs in (on the login line it moves to the password line),
-// Tab / Shift+Tab switch lines, Up/Down on the login line cycle users,
-// F10 cycles sessions, F11 reboots, F12 powers off, Escape clears the
-// password. Any key during the boot log skips to the prompt.
+// Keys: Enter on the login line moves to the password line, Enter on the
+// password line submits, Tab / Shift+Tab switch lines, Up/Down on the login
+// line emit userCycleRequested(), Escape clears the password, and F-keys
+// listed in footerKeys emit keyCommand("F<n>"). Any key during the boot log
+// skips to the prompt; a printable key also lands in the focused field.
 import QtQuick
 
 FocusScope {
@@ -18,6 +20,29 @@ FocusScope {
     property color okColor: "#39ff88"
     property color alertColor: "#ff2b4f"
 
+    // Header line, left side.
+    property string title: ""
+    // Lines typed out before the prompt: { msg, status, ok }.
+    property var bootScript: []
+    // Login line contents. When userEditable is false the line is read-only
+    // and focus starts on the password line.
+    property string userName: ""
+    property bool userEditable: true
+    // What the login line holds right now (userName is only the start value).
+    readonly property string currentUser: userInput.text
+    // Text for the session line; empty hides the line. Clicking it emits
+    // keyCommand(sessionKey).
+    property string sessionLabel: ""
+    property string sessionKey: "F10"
+    // Footer entries: { key: "F12", action: "power off" }.
+    property var footerKeys: []
+    property bool capsLock: false
+
+    signal submitted(string user, string password)
+    signal userCycleRequested(int step)
+    signal keyCommand(string key)
+    // Any key press, so the lock screen can keep PAM awake.
+    signal activity()
     signal denied()
     signal granted()
     signal glitchRequested(real amount)
@@ -35,7 +60,6 @@ FocusScope {
     property bool bootDone: false
     property bool busy: false
     property int failures: 0
-    property int sessionIndex: sessionModel.lastIndex >= 0 ? sessionModel.lastIndex : 0
     property string statusText: ""
     property color statusColor: textColor
 
@@ -46,26 +70,6 @@ FocusScope {
         id: fm
         font.family: term.fontFamily
         font.pixelSize: term.fontPx
-    }
-
-    // Collect user and session names; the models only expose them through
-    // roles, so a hidden Repeater is the plain way to read them by index.
-    Repeater {
-        id: users
-        model: userModel
-        delegate: Item { property string userName: model.name }
-    }
-    Repeater {
-        id: sessions
-        model: sessionModel
-        delegate: Item { property string sessionName: model.name }
-    }
-    // Reading sessions.count makes bindings that call this re-run once the
-    // Repeater has filled in; itemAt() alone would not notify.
-    function sessionName(i) {
-        if (i < 0 || i >= sessions.count)
-            return "default"
-        return sessions.itemAt(i).sessionName
     }
 
     function hex(n) {
@@ -80,14 +84,34 @@ FocusScope {
         return msg + " " + ".".repeat(Math.max(3, cols - 2 - msg.length - 2 - (status.length + 2)))
     }
 
-    readonly property var bootScript: [
-        { msg: "carrier detected on line 0x" + hex(4), status: "OK", ok: true },
-        { msg: "handshake " + hex(4) + ":" + hex(4) + ":" + hex(4), status: "OK", ok: true },
-        { msg: "routing through 7 relays", status: "OK", ok: true },
-        { msg: "mounting /dev/mainframe", status: "OK", ok: true },
-        { msg: "integrity of node " + sddm.hostName, status: "VERIFIED", ok: true },
-        { msg: "security clearance", status: "REQUIRED", ok: false }
-    ]
+    // Called by the owner once the login attempt has been rejected.
+    function fail(message) {
+        busy = false
+        failures++
+        passInput.text = ""
+        statusColor = alertColor
+        statusText = message
+        passInput.forceActiveFocus()
+        shake.restart()
+        denied()
+    }
+    // Called by the owner once the login attempt has been accepted.
+    function succeed(message) {
+        statusColor = okColor
+        statusText = message
+        granted()
+    }
+    // Informational line from the backend (PAM messages and the like).
+    function say(message, color) {
+        statusColor = color === undefined ? textColor : color
+        statusText = message
+    }
+    function clearPassword() {
+        passInput.text = ""
+    }
+    function setUser(name) {
+        userInput.text = name
+    }
 
     ListModel { id: bootLog }
     property int bootStep: 0
@@ -140,10 +164,11 @@ FocusScope {
         }
         bootStep = bootScript.length
         bootDone = true
-        if (userInput.text.length > 0)
-            passInput.forceActiveFocus()
-        else
-            userInput.forceActiveFocus()
+        firstField().forceActiveFocus()
+    }
+
+    function firstField() {
+        return (userInput.text.length > 0 || !userEditable) ? passInput : userInput
     }
 
     function submit() {
@@ -156,65 +181,37 @@ FocusScope {
         busy = true
         statusColor = accent
         statusText = "authenticating"
-        sddm.login(userInput.text, passInput.text, sessionIndex)
+        submitted(userInput.text, passInput.text)
     }
 
-    function cycleUser(step) {
-        if (users.count === 0)
-            return
-        let i = 0
-        for (let k = 0; k < users.count; k++)
-            if (users.itemAt(k).userName === userInput.text)
-                i = k
-        i = (i + step + users.count) % users.count
-        userInput.text = users.itemAt(i).userName
+    function isFooterKey(name) {
+        for (let i = 0; i < footerKeys.length; i++)
+            if (footerKeys[i].key === name)
+                return true
+        return false
     }
 
-    Connections {
-        target: sddm
-        function onLoginFailed() {
-            term.busy = false
-            term.failures++
-            passInput.text = ""
-            term.statusColor = term.alertColor
-            term.statusText = "access denied // attempt " + term.failures + " logged"
-            passInput.forceActiveFocus()
-            shake.restart()
-            term.denied()
-        }
-        function onLoginSucceeded() {
-            term.statusColor = term.okColor
-            term.statusText = "access granted // welcome, " + userInput.text
-            term.granted()
-        }
-        function onInformationMessage(message) {
-            term.statusColor = term.textColor
-            term.statusText = message
-        }
-    }
-
+    // Inputs see keys first; whatever they do not accept bubbles up here.
+    // Key presses on the inputs still count as activity through their own
+    // handlers below.
     Keys.onPressed: (event) => {
+        activity()
         if (!bootDone) {
             finishBoot()
+            // Keep a typed character instead of eating it, so typing the
+            // password straight away during the boot log works.
+            if (event.text.length === 1 && event.text >= " " && event.key !== Qt.Key_Escape) {
+                const field = firstField()
+                field.insert(field.cursorPosition, event.text)
+            }
             event.accepted = true
             return
         }
-        switch (event.key) {
-        case Qt.Key_F10:
-            if (sessions.count > 0)
-                sessionIndex = (sessionIndex + 1) % sessions.count
+        if (event.key >= Qt.Key_F1 && event.key <= Qt.Key_F35) {
+            const name = "F" + (event.key - Qt.Key_F1 + 1)
+            if (isFooterKey(name) || (sessionLabel !== "" && name === sessionKey))
+                keyCommand(name)
             event.accepted = true
-            break
-        case Qt.Key_F11:
-            if (sddm.canReboot)
-                sddm.reboot()
-            event.accepted = true
-            break
-        case Qt.Key_F12:
-            if (sddm.canPowerOff)
-                sddm.powerOff()
-            event.accepted = true
-            break
         }
     }
 
@@ -269,7 +266,7 @@ FocusScope {
                 width: parent.width
                 height: term.lineH
                 TermText {
-                    text: "MAINFRAME ACCESS NODE // " + sddm.hostName.toUpperCase()
+                    text: term.title
                     color: term.accent
                     font.bold: true
                 }
@@ -326,13 +323,15 @@ FocusScope {
                     label: "login:"
                     TermInput {
                         id: userInput
-                        text: userModel.lastUser
+                        text: term.userName
+                        readOnly: !term.userEditable
+                        activeFocusOnTab: term.userEditable
                         KeyNavigation.tab: passInput
                         KeyNavigation.backtab: passInput
                         Keys.onReturnPressed: passInput.forceActiveFocus()
                         Keys.onEnterPressed: passInput.forceActiveFocus()
-                        Keys.onUpPressed: term.cycleUser(-1)
-                        Keys.onDownPressed: term.cycleUser(1)
+                        Keys.onUpPressed: term.userCycleRequested(-1)
+                        Keys.onDownPressed: term.userCycleRequested(1)
                     }
                 }
                 PromptLine {
@@ -342,24 +341,33 @@ FocusScope {
                         echoMode: TextInput.Password
                         passwordCharacter: "*"
                         passwordMaskDelay: 0
-                        KeyNavigation.tab: userInput
-                        KeyNavigation.backtab: userInput
+                        KeyNavigation.tab: term.userEditable ? userInput : passInput
+                        KeyNavigation.backtab: term.userEditable ? userInput : passInput
                         Keys.onReturnPressed: term.submit()
                         Keys.onEnterPressed: term.submit()
-                        Keys.onEscapePressed: text = ""
+                        Keys.onEscapePressed: (event) => {
+                            text = ""
+                            // Let the lock screen see Escape too.
+                            event.accepted = false
+                        }
                         // Every keystroke nudges the screen a little.
-                        onTextEdited: if (Math.random() < 0.18) term.glitchRequested(0.12)
+                        onTextEdited: {
+                            term.activity()
+                            if (Math.random() < 0.18)
+                                term.glitchRequested(0.12)
+                        }
                     }
                 }
                 PromptLine {
                     label: "session:"
+                    visible: term.sessionLabel !== ""
                     TermText {
-                        text: term.sessionName(term.sessionIndex) + "  <F10>"
+                        text: term.sessionLabel
                         color: term.accent
                         MouseArea {
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: if (sessions.count > 0) term.sessionIndex = (term.sessionIndex + 1) % sessions.count
+                            onClicked: term.keyCommand(term.sessionKey)
                         }
                     }
                 }
@@ -376,7 +384,7 @@ FocusScope {
                     }
                     TermText {
                         anchors.right: parent.right
-                        visible: keyboard.capsLock
+                        visible: term.capsLock
                         color: term.alertColor
                         text: "[CAPS LOCK]"
                     }
@@ -392,19 +400,31 @@ FocusScope {
                 }
             }
 
-            Item { width: 1; height: term.lineH * 0.5 }
+            Item {
+                width: 1
+                height: term.lineH * 0.5
+                visible: term.footerKeys.length > 0
+            }
             Rectangle {
                 width: parent.width
                 height: 1
                 color: term.accent
                 opacity: 0.3
+                visible: term.footerKeys.length > 0
             }
             Row {
                 height: term.lineH
                 spacing: term.charW * 3
-                FooterKey { key: "F10"; action: "session"; onActivated: if (sessions.count > 0) term.sessionIndex = (term.sessionIndex + 1) % sessions.count }
-                FooterKey { key: "F11"; action: "reboot"; visible: sddm.canReboot; onActivated: sddm.reboot() }
-                FooterKey { key: "F12"; action: "power off"; visible: sddm.canPowerOff; onActivated: sddm.powerOff() }
+                visible: term.footerKeys.length > 0
+                Repeater {
+                    model: term.footerKeys
+                    delegate: FooterKey {
+                        required property var modelData
+                        key: modelData.key
+                        action: modelData.action
+                        onActivated: term.keyCommand(modelData.key)
+                    }
+                }
             }
         }
     }

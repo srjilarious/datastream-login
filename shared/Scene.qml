@@ -1,27 +1,31 @@
-// datastream: an SDDM greeter that flies through a neon city of hex-covered
-// towers while a retro terminal asks for your password.
+// The datastream backdrop shared by the SDDM greeter and the lock screen:
+// a flight through a neon city of hex-covered towers with hex rain on top,
+// a CRT pass over everything and an ACCESS GRANTED / DENIED banner.
 //
 // Layering, back to front, all inside `scene` so the CRT pass sees it all:
 //   city (raycast shader, rendered at RenderScale and upscaled)
 //   rain (screen-space hex streams)
-//   terminal panel
-//   ACCESS GRANTED / DENIED banner
-// The CRT shader is the scene's layer.effect; `glitch` and `flash` on root
-// drive it, and the terminal asks for bursts through its signals.
+//   children of Scene (the terminal)
+//   banner
+// The owner puts its terminal inside Scene, points `bannerAnchor` at it and
+// calls deny() / grant() / burst() as the login goes.
 import QtQuick
 
-Rectangle {
+Item {
     id: root
 
-    width: Screen.width
-    height: Screen.height
-    color: "black"
+    // Key/value settings from theme.conf: SDDM's `config` object, or the
+    // plain JS object the lock screen installer generates.
+    property var settings: ({})
+    // The banner sits just above this item.
+    property Item bannerAnchor: null
+    default property alias content: overlay.data
 
     // theme.conf values arrive as strings. A missing key can come back as
     // undefined or even as an unrelated object (QML resolves "Font" to its
     // own type namespace), so anything that is not a plain value falls back.
     function cfg(key, fallback) {
-        const v = config[key]
+        const v = settings ? settings[key] : undefined
         const plain = typeof v === "string" || typeof v === "number" || typeof v === "boolean"
         return (!plain || v === "") ? fallback : v
     }
@@ -32,6 +36,14 @@ Rectangle {
     function cfgBool(key, fallback) {
         return String(cfg(key, fallback)).toLowerCase() === "true"
     }
+
+    // Terminal styling, read once here so both owners style it the same way.
+    readonly property string fontFamily: cfg("Font", "JetBrains Mono")
+    readonly property int fontPx: Math.max(13, Math.round(height / 64))
+    readonly property color accent: cfg("Accent", "#00e5ff")
+    readonly property color textColor: cfg("TextColor", "#b8f7ff")
+    readonly property color okColor: cfg("OkColor", "#39ff88")
+    readonly property color alertColor: cfg("AlertColor", "#ff2b4f")
 
     readonly property color tintA: cfg("TintA", "#00e5ff")
     readonly property color tintB: cfg("TintB", "#ff2bd6")
@@ -98,6 +110,18 @@ Rectangle {
         easing.type: Easing.OutCubic
     }
 
+    function deny() {
+        burst(1.0, 900)
+        flashWith(alertColor, 0.35, 700)
+        banner.show("ACCESS DENIED", alertColor)
+    }
+    function grant() {
+        burst(0.5, 600)
+        flashWith(okColor, 0.25, 1200)
+        banner.show("ACCESS GRANTED", okColor)
+        warp.start()
+    }
+
     // Small idle glitches so the screen never feels static.
     Timer {
         running: root.cfgBool("IdleGlitch", true)
@@ -162,36 +186,16 @@ Rectangle {
             fragmentShader: Qt.resolvedUrl("shaders/rain.frag.qsb")
         }
 
-        Terminal {
-            id: terminal
-            anchors.centerIn: parent
-            fontFamily: root.cfg("Font", "JetBrains Mono")
-            fontPx: Math.max(13, Math.round(root.height / 64))
-            accent: root.cfg("Accent", "#00e5ff")
-            textColor: root.cfg("TextColor", "#b8f7ff")
-            okColor: root.cfg("OkColor", "#39ff88")
-            alertColor: root.cfg("AlertColor", "#ff2b4f")
-            focus: true
-
-            onDenied: {
-                root.burst(1.0, 900)
-                root.flashWith(alertColor, 0.35, 700)
-                banner.show("ACCESS DENIED", alertColor)
-            }
-            onGranted: {
-                root.burst(0.5, 600)
-                root.flashWith(okColor, 0.25, 1200)
-                banner.show("ACCESS GRANTED", okColor)
-                warp.start()
-            }
-            onGlitchRequested: (amount) => root.burst(amount, 250)
+        Item {
+            id: overlay
+            anchors.fill: parent
         }
 
         Banner {
             id: banner
             anchors.horizontalCenter: parent.horizontalCenter
-            y: terminal.y - height - root.height * 0.04
-            fontFamily: terminal.fontFamily
+            y: (root.bannerAnchor ? root.bannerAnchor.y : root.height * 0.3) - height - root.height * 0.04
+            fontFamily: root.fontFamily
             fontPx: Math.round(root.height / 11)
         }
     }
@@ -204,6 +208,4 @@ Rectangle {
         duration: 1600
         easing.type: Easing.InQuad
     }
-
-    Component.onCompleted: terminal.forceActiveFocus()
 }
