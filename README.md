@@ -1,5 +1,17 @@
 # datastream
 
+Two sets of login themes for SDDM (Qt 6), each with a matching Plasma 6
+lock screen:
+
+- **datastream** (below): a flight through a neon city with a retro
+  terminal.
+- **acidburn** (see [acidburn](#acidburn)): a burning halftone flame over
+  liquid plasma, after Acid Burn's login screen in *Hackers*.
+
+The install scripts take the set's name and default to datastream.
+
+## datastream
+
 A login theme for SDDM (Qt 6) and a matching Plasma 6 lock screen. The
 camera flies down an avenue of neon towers covered in streaming hex, green
 hex rain falls over the top, and a retro terminal types out a boot log
@@ -19,16 +31,18 @@ and the user fixed to the one who is locked out.
 
 ### Login screen (SDDM)
 
-    ./install-sddm.sh
+    ./install-sddm.sh              # datastream
+    ./install-sddm.sh acidburn     # acidburn
     sddm-greeter-qt6 --test-mode --theme /usr/share/sddm/themes/datastream
 
 Then select it in System Settings > Login Screen (SDDM).
 
 ### Lock screen
 
-    ./install-lock.sh          # install or update
-    ./install-lock.sh --test   # install, then open a test lock screen
-    ./install-lock.sh --uninstall
+    ./install-lock.sh                     # install or update datastream
+    ./install-lock.sh acidburn            # install or update acidburn
+    ./install-lock.sh acidburn --test     # install, then open a test lock screen
+    ./install-lock.sh acidburn --uninstall
 
 No sudo needed. Plasma's locker (`kscreenlocker_greet`) loads
 `lockscreen/LockScreen.qml` from the Plasma shell package named by
@@ -41,6 +55,10 @@ KWin starts the locker, so the locker sees it; plasmashell is a separate
 service and keeps the normal desktop shell. The drop-in takes effect at the
 next login. If the QML ever fails to load, kscreenlocker falls back to its
 built-in lock screen, so a broken theme cannot leave you unable to unlock.
+
+Both sets share that one drop-in, so the set installed last is the lock
+screen in use. `--uninstall` removes the set's package, and removes the
+drop-in only when it points at that set.
 
 The lock screen package needs `"X-Plasma-APIVersion": "2"` in its metadata,
 or kscreenlocker logs "Lockscreen QML outdated" and uses Breeze.
@@ -104,6 +122,44 @@ editing `theme.conf`.
 The lock screen also takes `UnlockDelay`, the milliseconds ACCESS GRANTED
 plays before the desktop comes back (default 1200).
 
+## acidburn
+
+A wide diamond with a beaded, perforated cream border sweeps in from its
+right corner, burns from the center to white heat and cools into scorched
+paper while a flame pops in as hex halftone dots. Then the diamond breaks
+into shrinking dots, liquid blue plasma floods in behind, and the flame
+drifts up to rest above the prompt, recolored in gold from the plasma
+behind it. The intro plays once (about seven seconds; any key skips it)
+and the plasma keeps flowing after.
+
+![acidburn intro, the flame appearing over scorched paper](docs/screenshots/acidburn-intro.jpg)
+
+![acidburn login prompt](docs/screenshots/acidburn-login.jpg)
+
+What it reacts to:
+
+- Moving the mouse stirs a whirlpool into the plasma around the pointer.
+- Typing makes the flame flare taller and brighter and speeds up the flow.
+  Each password character drops into the field as a dot.
+- A wrong password knocks the flame's dots off their grid, red hot, with a
+  glitch and ACCESS DENIED.
+- The right one floods the screen with cream halftone dots from the flame
+  outwards, then fades to black.
+
+![acidburn lock screen unlocking](docs/screenshots/acidburn-lock-granted.jpg)
+
+Keys are the same as datastream's, with the handle line standing in for
+the login line. The lock screen waits `UnlockDelay` ms (default 1400) for
+the flood before it exits.
+
+Options live in `acidburn/theme.conf`: `Palette` (`film` or `toxic`),
+`NodeName`, `Intro`, `PointerSwirl`, `FlowSpeed`, `RenderScale` (the plasma
+is rendered at this fraction of the screen, 0.6 by default),
+`HalftoneDots`, `Scanlines`, `IdleGlitch`, and every palette color. The
+settings window only manages datastream for now.
+
+![acidburn with the toxic palette](docs/screenshots/acidburn-toxic.jpg)
+
 ## Layout
 
 - `shared/Scene.qml`: city, rain, CRT pass, glitch/flash drivers, banner, warp.
@@ -124,10 +180,18 @@ plays before the desktop comes back (default 1200).
 - `sddm/shared` and `lockscreen/shared` are symlinks to `shared/` so each
   entry point can `import "shared"` from the repo the same way it does
   once installed.
+- `acidburn/` has the same layout for the second set: `theme.conf`,
+  `sddm/`, `lockscreen/` and `shared/`. `shared/Scene.qml` runs the intro
+  and reactions, `shared/Prompt.qml` is the prompt (same API as
+  `Terminal.qml`, so the SDDM and lock screen wiring matches),
+  `shared/shaders/plasma.frag` is the plasma and `shared/shaders/emblem.frag`
+  draws the diamond, flame and outro over it. `Banner.qml` and
+  `post.frag.qsb` in `acidburn/shared` are symlinks to the top-level
+  `shared/`; the install scripts copy them in as plain files.
 
 The glyphs are a hand-made 3x5 hex font packed into floats
 (`tools/font.py`), shared by the city and rain shaders. After editing a
-`.frag`, run `./build-shaders.sh`.
+`.frag` in either set, run `./build-shaders.sh`.
 
 ## Testing without installing
 
@@ -137,6 +201,12 @@ with the plain `qml` runtime (password "hack" succeeds):
     tools/conf2js.sh theme.conf > lockscreen/settings.js
     QT_FORCE_STDERR_LOGGING=1 qml6 harness/lock.qml -- "$PWD/lockscreen" /tmp/shots
     QT_FORCE_STDERR_LOGGING=1 qml6 harness/sddm.qml -- "$PWD/sddm" /tmp/shots
+
+acidburn has its own scripts, which shoot the intro phase by phase:
+
+    tools/conf2js.sh acidburn/theme.conf > acidburn/lockscreen/settings.js
+    QT_FORCE_STDERR_LOGGING=1 qml6 harness/acidburn-lock.qml -- "$PWD/acidburn/lockscreen" /tmp/shots
+    QT_FORCE_STDERR_LOGGING=1 qml6 harness/acidburn-sddm.qml -- "$PWD/acidburn/sddm" /tmp/shots [toxic]
 
 Under a systemd session Qt logs to the journal, so without
 `QT_FORCE_STDERR_LOGGING=1` QML errors are silent.

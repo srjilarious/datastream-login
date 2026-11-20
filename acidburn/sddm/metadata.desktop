@@ -1,0 +1,13 @@
+[SddmGreeterTheme]
+Name=acidburn
+Description=A burning halftone flame over liquid plasma, after the Hackers login sequence
+Author=Jeff DeWall
+License=MIT
+Type=sddm-theme
+Version=0.1.0
+Screenshot=preview.png
+MainScript=Main.qml
+ConfigFile=theme.conf
+Theme-Id=acidburn
+Theme-API=2.0
+QtVersion=6
