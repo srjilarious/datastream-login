@@ -1,6 +1,8 @@
 // Full-screen CRT pass over the whole scene: chromatic split, glitch band
 // displacement, scanlines, a slow rolling bar, grain and vignette. glitch is
 // 0 normally and spikes to 1 on a failed login or the idle glitch timer.
+// split is the resting red/blue offset when nothing is glitching; 0 keeps
+// the picture clean until a glitch spreads the channels apart.
 // mono > 0 maps the result onto one phosphor color by brightness, for the
 // single-color monitor palettes.
 #version 440
@@ -19,6 +21,7 @@ layout(std140, binding = 0) uniform buf {
     vec4 flashColor;
     float mono;      // 0 = full color, 1 = single phosphor color
     vec4 monoTint;
+    float split;     // resting chromatic offset, in texture widths
 };
 
 layout(binding = 1) uniform sampler2D source;
@@ -42,7 +45,7 @@ void main() {
     float tear = smoothstep(0.004, 0.0, abs(uv.y - fract(time * 0.031)));
     uv.x += tear * 0.004;
 
-    float ca = 0.0012 + 0.014 * g + pick * g * 0.01;
+    float ca = split + 0.014 * g + pick * g * 0.01;
     vec3 c;
     c.r = texture(source, uv + vec2(ca, 0.0)).r;
     c.g = texture(source, uv).g;

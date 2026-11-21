@@ -164,6 +164,7 @@ Item {
             property color flashColor: root.flashColor
             property real mono: root.monochrome
             property color monoTint: root.monochromeTint
+            property real split: 0.0012
             fragmentShader: Qt.resolvedUrl("shaders/post.frag.qsb")
         }
 

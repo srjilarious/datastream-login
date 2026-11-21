@@ -237,8 +237,8 @@ Item {
         id: scene
         anchors.fill: parent
 
-        // Film pass shared with datastream: grain, vignette, a little color
-        // fringing, and glitch bands when something happens.
+        // Film pass shared with datastream: grain, vignette, and color
+        // fringing with glitch bands when something happens.
         layer.enabled: true
         layer.effect: ShaderEffect {
             property real time: root.clock
@@ -249,6 +249,8 @@ Item {
             property color flashColor: root.flashColor
             property real mono: 0
             property color monoTint: "white"
+            // No resting split; the channels only part while glitching.
+            property real split: 0
             fragmentShader: Qt.resolvedUrl("shaders/post.frag.qsb")
         }
 
